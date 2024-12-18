@@ -18,16 +18,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var userCollection *mongo.Collection = database.OpenCollection(database.Client, "user")
+var userCollection *mongo.Collection = database.OpenCollection(database.Client, "users")
 var validate = validator.New()
 
-func HashPassword(password string) (string, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+func HashPassword(password string) string {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	if err != nil {
-		log.Println("Erro ao hashear senha:", err)
-		return "", err
+		log.Panic(err)
+		return ""
 	}
-	return string(hashedPassword), nil
+	return string(hashedPassword)
 }
 
 func VerifyPassword(providedPassword string, storedHash string) error {
@@ -50,9 +50,9 @@ func CreateUser() gin.HandlerFunc {
 			return
 		}
 
-		validationError := validate.Struct(user)
-		if validationError != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": validationError.Error()})
+		validationErrors := validate.Struct(user)
+		if validationErrors != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": validationErrors.Error()})
 			return
 		}
 
@@ -64,10 +64,12 @@ func CreateUser() gin.HandlerFunc {
 		}
 
 		if count > 0 {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "usuário já existe"})
+			c.JSON(http.StatusConflict, gin.H{"error": "usuário já existe"})
+			return
 		}
 
-		user.Password = HashPassword(*user.Password)
+		password := HashPassword(*user.Password)
+		user.Password = &password
 		user.ID = primitive.NewObjectID()
 		user.UserId = user.ID.Hex()
 
@@ -95,24 +97,64 @@ func LoginUser() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "erro ao ler dados"})
 			return
 		}
+		if (user.Email == nil) || (user.Password == nil) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "email e senha são obrigatórios"})
+			return
+		}
 
-		err := userCollection.FindOne(ctx, bson.M{"Email": user.Email}).Decode(&foundUser)
+		err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "email ou senha incorretos"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "email e/ou senha incorretos"})
 			return
 		}
 
 		if err := VerifyPassword(*user.Password, *foundUser.Password); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "email e/ou senha incorretos"})
 			return
 		}
 
+		accessToken, refreshToken, _ := helper.GenerateTokens(*foundUser.Email, *foundUser.Name, foundUser.UserId, *foundUser.UserType, true)
+
+		c.JSON(http.StatusOK, gin.H{
+			"accessToken":  accessToken,
+			"refreshToken": refreshToken,
+			"user":         foundUser,
+		})
 	}
 }
 
 func GetAllUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// TODO: implement
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		var users []model.User
+
+		cursor, err := userCollection.Find(ctx, bson.M{})
+		if err != nil {
+			log.Println("Erro ao buscar usuários:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar usuários"})
+			return
+		}
+		defer cursor.Close(ctx)
+
+		for cursor.Next(ctx) {
+			var user model.User
+			if err := cursor.Decode(&user); err != nil {
+				log.Println("Erro ao decodificar usuário:", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários"})
+				return
+			}
+			users = append(users, user)
+		}
+
+		if err := cursor.Err(); err != nil {
+			log.Println("Erro no cursor:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários"})
+			return
+		}
+
+		c.JSON(http.StatusOK, users)
 	}
 }
 
@@ -128,8 +170,9 @@ func GetOneUser() gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100+time.Second)
 
 		var user model.User
-		err := userCollection.FindOne(ctx, bson.M{"userId": userId}).Decode(&user)
+		err := userCollection.FindOne(ctx, bson.M{"userid": userId}).Decode(&user)
 		defer cancel()
+
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "usuário não encontrado"})
 			return
