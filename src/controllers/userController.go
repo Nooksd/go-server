@@ -12,6 +12,7 @@ import (
 	model "github.com/Nooksd/go-server/src/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -119,6 +120,27 @@ func LoginUser() gin.HandlerFunc {
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
 			"user":         foundUser,
+		})
+	}
+}
+
+func GetCurrentUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Sucesso",
+			"user":    claims,
 		})
 	}
 }
