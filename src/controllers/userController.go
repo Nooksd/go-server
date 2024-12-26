@@ -72,7 +72,7 @@ func CreateUser() gin.HandlerFunc {
 		password := HashPassword(*user.Password)
 		user.Password = &password
 		user.ID = primitive.NewObjectID()
-		user.UserId = user.ID.Hex()
+		user.Uid = user.ID.Hex()
 
 		resultInsertionNumber, insertErr := userCollection.InsertOne(ctx, user)
 		if insertErr != nil {
@@ -114,7 +114,7 @@ func LoginUser() gin.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, _ := helper.GenerateTokens(*foundUser.Email, *foundUser.Name, foundUser.UserId, *foundUser.UserType, true)
+		accessToken, refreshToken, _ := helper.GenerateTokens(*foundUser.Email, *foundUser.Name, foundUser.Uid, *foundUser.UserType, true)
 
 		c.JSON(http.StatusOK, gin.H{
 			"accessToken":  accessToken,
@@ -138,9 +138,78 @@ func GetCurrentUser() gin.HandlerFunc {
 			return
 		}
 
+		userID := claims["Uid"].(string)
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		filter := bson.M{"uid": userID}
+
+		var user model.User
+		err := userCollection.FindOne(ctx, filter).Decode(&user)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+			return
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Sucesso",
-			"user":    claims,
+			"user":    user,
+		})
+	}
+}
+
+func UpdateOneUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		userType := claims["UserType"].(string)
+		userId := claims["Uid"].(string)
+		targetUserId := c.Param("userId")
+
+		if userType != "ADMIN" && userId != targetUserId {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Você não tem permissão para atualizar este usuário"})
+			return
+		}
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		var userUpdates bson.M
+		if err := c.BindJSON(&userUpdates); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Erro ao ler os dados de atualização"})
+			return
+		}
+
+		delete(userUpdates, "userType")
+		delete(userUpdates, "password")
+
+		filter := bson.M{"uid": targetUserId}
+		update := bson.M{"$set": userUpdates}
+
+		result, err := userCollection.UpdateOne(ctx, filter, update)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar os dados do usuário"})
+			return
+		}
+
+		if result.MatchedCount == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuário não encontrado"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Usuário atualizado com sucesso",
+			"result":  result,
 		})
 	}
 }
@@ -192,7 +261,7 @@ func GetOneUser() gin.HandlerFunc {
 		var ctx, cancel = context.WithTimeout(context.Background(), 100+time.Second)
 
 		var user model.User
-		err := userCollection.FindOne(ctx, bson.M{"userid": userId}).Decode(&user)
+		err := userCollection.FindOne(ctx, bson.M{"uid": userId}).Decode(&user)
 		defer cancel()
 
 		if err != nil {

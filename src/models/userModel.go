@@ -12,7 +12,7 @@ type User struct {
 	Email        *string            `json:"email" validate:"required"`
 	Password     *string            `json:"password" validate:"required"`
 	UserType     *string            `json:"userType" validate:"required"`
-	UserId       string             `json:"userId"`
+	Uid          string             `json:"uid"`
 	PhoneNumber  *string            `json:"phoneNumber"`
 	Role         *string            `json:"role"`
 	EntryDate    *time.Time         `json:"entryDate"`

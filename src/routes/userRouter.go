@@ -11,4 +11,5 @@ func UserRoutes(incomingRoutes *gin.Engine) {
 	incomingRoutes.GET("/users", controller.GetAllUsers())
 	incomingRoutes.GET("/users/:userId", controller.GetOneUser())
 	incomingRoutes.GET("/users/get-current-user", controller.GetCurrentUser())
+	incomingRoutes.PUT("/users/update/:userId", controller.UpdateOneUser())
 }
