@@ -192,6 +192,7 @@ func UpdateOneUser() gin.HandlerFunc {
 
 		delete(userUpdates, "userType")
 		delete(userUpdates, "password")
+		delete(userUpdates, "uid")
 
 		filter := bson.M{"uid": targetUserId}
 		update := bson.M{"$set": userUpdates}
@@ -207,9 +208,17 @@ func UpdateOneUser() gin.HandlerFunc {
 			return
 		}
 
+		var userProfile model.User
+		err = userCollection.FindOne(ctx, filter).Decode(&userProfile)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar o usuário atualizado"})
+			return
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Usuário atualizado com sucesso",
 			"result":  result,
+			"user":    userProfile,
 		})
 	}
 }
@@ -233,7 +242,7 @@ func GetAllUsers() gin.HandlerFunc {
 			var user model.User
 			if err := cursor.Decode(&user); err != nil {
 				log.Println("Erro ao decodificar usuário:", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários 1"})
 				return
 			}
 			users = append(users, user)
@@ -241,7 +250,7 @@ func GetAllUsers() gin.HandlerFunc {
 
 		if err := cursor.Err(); err != nil {
 			log.Println("Erro no cursor:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários 2"})
 			return
 		}
 
@@ -265,7 +274,7 @@ func GetOneUser() gin.HandlerFunc {
 		defer cancel()
 
 		if err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "usuário não encontrado"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "usuário não encontrado", "erro": err.Error()})
 			return
 		}
 

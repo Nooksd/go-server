@@ -6,10 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func UserRoutes(incomingRoutes *gin.Engine) {
-	incomingRoutes.Use(middleware.Authenticate())
-	incomingRoutes.GET("/users", controller.GetAllUsers())
-	incomingRoutes.GET("/users/:userId", controller.GetOneUser())
-	incomingRoutes.GET("/users/get-current-user", controller.GetCurrentUser())
-	incomingRoutes.PUT("/users/update/:userId", controller.UpdateOneUser())
+func UserRoutes(router *gin.Engine) {
+	router.Use(middleware.Authenticate())
+	router.GET("/users", controller.GetAllUsers())
+	router.GET("/users/:userId", controller.GetOneUser())
+	router.GET("/users/get-current-user", controller.GetCurrentUser())
+	router.PUT("/users/update/:userId", controller.UpdateOneUser())
 }
