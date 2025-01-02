@@ -20,6 +20,7 @@ func main() {
 	routes.AuthRoutes(router)
 	routes.AvatarRoutes(router)
 	routes.UserRoutes(router)
+	routes.PostRoutes(router)
 
 	router.Run(":" + port)
 }

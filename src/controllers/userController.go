@@ -114,7 +114,7 @@ func LoginUser() gin.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, _ := helper.GenerateTokens(*foundUser.Email, *foundUser.Name, foundUser.Uid, *foundUser.UserType, true)
+		accessToken, refreshToken, _ := helper.GenerateTokens(*foundUser.Email, *foundUser.Name, foundUser.ProfilePictureUrl, foundUser.Uid, *foundUser.UserType, true)
 
 		c.JSON(http.StatusOK, gin.H{
 			"accessToken":  accessToken,
@@ -154,6 +154,47 @@ func GetCurrentUser() gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Sucesso",
 			"user":    user,
+		})
+	}
+}
+
+func RefreshToken() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		refreshToken := c.GetHeader("Token")
+		if refreshToken == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Token não fornecido"})
+			return
+		}
+
+		token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
+			return []byte(helper.SECRET_KEY), nil
+		})
+
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Token inválido"})
+			return
+		}
+
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		email := claims["Email"].(string)
+		name := claims["Name"].(string)
+		profilePictureUrl := claims["ProfilePictureUrl"].(string)
+		uid := claims["Uid"].(string)
+		userType := claims["UserType"].(string)
+
+		newAccessToken, _, err := helper.GenerateTokens(email, name, profilePictureUrl, uid, userType, false)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao gerar novo token"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"accessToken": newAccessToken,
 		})
 	}
 }
@@ -242,19 +283,19 @@ func GetAllUsers() gin.HandlerFunc {
 			var user model.User
 			if err := cursor.Decode(&user); err != nil {
 				log.Println("Erro ao decodificar usuário:", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários 1"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários"})
 				return
 			}
+			user.Password = nil
 			users = append(users, user)
 		}
 
 		if err := cursor.Err(); err != nil {
-			log.Println("Erro no cursor:", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários 2"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar usuários"})
 			return
 		}
 
-		c.JSON(http.StatusOK, users)
+		c.JSON(http.StatusOK, gin.H{"users": users})
 	}
 }
 
