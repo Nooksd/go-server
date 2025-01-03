@@ -22,6 +22,15 @@ import (
 
 var postCollection *mongo.Collection = database.OpenCollection(database.Client, "posts")
 
+func contains(slice []string, item string) bool {
+	for _, a := range slice {
+		if a == item {
+			return true
+		}
+	}
+	return false
+}
+
 func UploadPost() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userClaims, exists := c.Get("user")
@@ -50,9 +59,10 @@ func UploadPost() gin.HandlerFunc {
 
 		post.ID = primitive.NewObjectID()
 		post.Name = claims["Name"].(string)
+		post.Role = claims["Role"].(string)
 		post.OwnerId = claims["Uid"].(string)
 		post.AvatarURL = claims["ProfilePictureUrl"].(string)
-		post.Likes = 0
+		post.Likes = []string{}
 		post.Comments = []model.Comment{}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -103,6 +113,290 @@ func GetPosts() gin.HandlerFunc {
 
 func DeletePost() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		userType := claims["UserType"].(string)
+		userId := claims["Uid"].(string)
+
+		postIdParam := c.Param("postId")
+
+		postId, err := primitive.ObjectIDFromHex(postIdParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID do post inválido"})
+			return
+		}
+
+		var post model.Post
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = postCollection.FindOne(ctx, bson.M{"_id": postId}).Decode(&post)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Post não encontrado"})
+			return
+		}
+
+		if post.OwnerId != userId && userType != "ADMIN" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Você não tem permissão para deletar este post"})
+			return
+		}
+
+		_, err = postCollection.DeleteOne(ctx, bson.M{"_id": postId})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao deletar post"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Post deletado com sucesso"})
+	}
+}
+
+func LikePost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		userId := claims["Uid"].(string)
+		postIdParam := c.Param("postId")
+
+		postId, err := primitive.ObjectIDFromHex(postIdParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID do post inválido"})
+			return
+		}
+
+		var post model.Post
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = postCollection.FindOne(ctx, bson.M{"_id": postId}).Decode(&post)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Post não encontrado"})
+			return
+		}
+
+		if contains(post.Likes, userId) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Usuário ja gostou do post"})
+			return
+		}
+
+		post.Likes = append(post.Likes, userId)
+
+		_, err = postCollection.UpdateOne(ctx, bson.M{"_id": postId}, bson.M{"$set": bson.M{"likes": post.Likes}})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar post"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Post gostado com sucesso"})
+	}
+}
+
+func DislikePost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		userId := claims["Uid"].(string)
+		postIdParam := c.Param("postId")
+
+		postId, err := primitive.ObjectIDFromHex(postIdParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID do post inválido"})
+			return
+		}
+
+		var post model.Post
+
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = postCollection.FindOne(ctx, bson.M{"_id": postId}).Decode(&post)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Post não encontrado"})
+			return
+		}
+
+		if !contains(post.Likes, userId) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Usuário ainda nao gostou do post"})
+			return
+		}
+
+		var likes []string
+
+		for _, like := range post.Likes {
+			if like != userId {
+				likes = append(likes, like)
+			}
+		}
+
+		post.Likes = likes
+
+		_, err = postCollection.UpdateOne(ctx, bson.M{"_id": postId}, bson.M{"$set": bson.M{"likes": post.Likes}})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar post"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Post desgostado com sucesso"})
+	}
+}
+
+func CommentPost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		postIdParam := c.Param("postId")
+
+		postId, err := primitive.ObjectIDFromHex(postIdParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID do post inválido"})
+			return
+		}
+
+		var post model.Post
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = postCollection.FindOne(ctx, bson.M{"_id": postId}).Decode(&post)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Post não encontrado"})
+			return
+		}
+
+		var newComment model.Comment
+
+		if err := c.ShouldBindJSON(&newComment); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Dados de comentário inválidos"})
+			return
+		}
+
+		newComment.OwnerId = claims["Uid"].(string)
+		newComment.Name = claims["Name"].(string)
+		newComment.AvatarURL = claims["ProfilePictureUrl"].(string)
+		newComment.ID = primitive.NewObjectID()
+
+		post.Comments = append(post.Comments, newComment)
+
+		_, err = postCollection.UpdateOne(ctx, bson.M{"_id": postId}, bson.M{"$set": bson.M{"comments": post.Comments}})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao adicionar comentário"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Comentário adicionado com sucesso", "comments": post.Comments})
+	}
+}
+
+func DeleteComment() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		postIdParam := c.Param("postId")
+		commentIdParam := c.Param("commentId")
+
+		postId, err := primitive.ObjectIDFromHex(postIdParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID do post inválido"})
+			return
+		}
+
+		commentId, err := primitive.ObjectIDFromHex(commentIdParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID do comentário inválido"})
+			return
+		}
+
+		var post model.Post
+		var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = postCollection.FindOne(ctx, bson.M{"_id": postId}).Decode(&post)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Post não encontrado"})
+			return
+		}
+
+		var commentIndex = -1
+		for i, comment := range post.Comments {
+			if comment.ID == commentId {
+				commentIndex = i
+				break
+			}
+		}
+
+		if commentIndex == -1 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Comentário não encontrado"})
+			return
+		}
+
+		commentOwnerId := post.Comments[commentIndex].OwnerId
+		userId := claims["Uid"].(string)
+
+		if commentOwnerId != userId {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Você não tem permissão para deletar este comentário"})
+			return
+		}
+
+		post.Comments = append(post.Comments[:commentIndex], post.Comments[commentIndex+1:]...)
+
+		_, err = postCollection.UpdateOne(ctx, bson.M{"_id": postId}, bson.M{"$set": bson.M{"comments": post.Comments}})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao deletar comentário"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Comentário deletado com sucesso"})
 	}
 }
 
@@ -159,7 +453,7 @@ func UploadImage() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"url": "http://localhost:9000/post/image/get/" + filename})
+		c.JSON(http.StatusOK, gin.H{"url": "http://192.168.1.68:9000/post/image/get/" + filename})
 	}
 }
 

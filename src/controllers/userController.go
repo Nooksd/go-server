@@ -114,7 +114,7 @@ func LoginUser() gin.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, _ := helper.GenerateTokens(*foundUser.Email, *foundUser.Name, foundUser.ProfilePictureUrl, foundUser.Uid, *foundUser.UserType, true)
+		accessToken, refreshToken, _ := helper.GenerateTokens(*foundUser.Email, *foundUser.Name, foundUser.ProfilePictureUrl, *foundUser.Role, foundUser.Uid, *foundUser.UserType, true)
 
 		c.JSON(http.StatusOK, gin.H{
 			"accessToken":  accessToken,
@@ -184,10 +184,11 @@ func RefreshToken() gin.HandlerFunc {
 		email := claims["Email"].(string)
 		name := claims["Name"].(string)
 		profilePictureUrl := claims["ProfilePictureUrl"].(string)
+		role := claims["Role"].(string)
 		uid := claims["Uid"].(string)
 		userType := claims["UserType"].(string)
 
-		newAccessToken, _, err := helper.GenerateTokens(email, name, profilePictureUrl, uid, userType, false)
+		newAccessToken, _, err := helper.GenerateTokens(email, name, profilePictureUrl, role, uid, userType, false)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao gerar novo token"})
 			return

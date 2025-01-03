@@ -19,8 +19,8 @@ func main() {
 
 	routes.AuthRoutes(router)
 	routes.AvatarRoutes(router)
-	routes.UserRoutes(router)
 	routes.PostRoutes(router)
+	routes.UserRoutes(router)
 
 	router.Run(":" + port)
 }

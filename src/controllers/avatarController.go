@@ -70,7 +70,7 @@ func UploadAvatar() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Avatar enviado com sucesso!", "url": "http://localhost:9000/avatar/get/" + filename})
+		c.JSON(http.StatusOK, gin.H{"message": "Avatar enviado com sucesso!", "url": "http://192.168.1.68:9000/avatar/get/" + filename})
 	}
 }
 
