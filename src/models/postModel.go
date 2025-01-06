@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -23,4 +25,5 @@ type Post struct {
 	ImageUrl  string             `json:"imageUrl"`
 	Likes     []string           `json:"likes" validate:"gte=0"`
 	Comments  []Comment          `json:"comments"`
+	CreatedAt time.Time          `bson:"createdAt" json:"createdAt"`
 }

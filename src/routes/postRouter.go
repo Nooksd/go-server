@@ -8,6 +8,7 @@ import (
 
 func PostRoutes(router *gin.Engine) {
 	router.POST("/post/create", middleware.Authenticate(), controller.UploadPost())
+	router.GET("/post/get/:postId", middleware.Authenticate(), controller.GetPost())
 	router.GET("/post/get", middleware.Authenticate(), controller.GetPosts())
 
 	router.POST("/post/like/:postId", middleware.Authenticate(), controller.LikePost())

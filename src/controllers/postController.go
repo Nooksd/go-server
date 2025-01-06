@@ -64,6 +64,7 @@ func UploadPost() gin.HandlerFunc {
 		post.AvatarURL = claims["ProfilePictureUrl"].(string)
 		post.Likes = []string{}
 		post.Comments = []model.Comment{}
+		post.CreatedAt = time.Now()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -108,6 +109,31 @@ func GetPosts() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"posts": posts, "page": pageInt})
+	}
+}
+
+func GetPost() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		postIdParam := c.Param("postId")
+
+		postId, err := primitive.ObjectIDFromHex(postIdParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ID do post inválido"})
+			return
+		}
+
+		var post model.Post
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = postCollection.FindOne(ctx, bson.M{"_id": postId}).Decode(&post)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Post não encontrado"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"post": post})
 	}
 }
 
