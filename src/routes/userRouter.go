@@ -8,7 +8,10 @@ import (
 
 func UserRoutes(router *gin.Engine) {
 	router.Use(middleware.Authenticate())
-	router.GET("/users", controller.GetAllUsers())
+	router.POST("/user/create", controller.CreateUser())
+	router.GET("/users", controller.SearchUsers())
+	router.POST("/avatar/upload/:userId", controller.UploadAvatar())
+	router.GET("/users/birthdays", controller.GetBirthdays())
 	router.GET("/users/:userId", controller.GetOneUser())
 	router.GET("/users/get-current-user", controller.GetCurrentUser())
 	router.PUT("/users/update/:userId", controller.UpdateOneUser())

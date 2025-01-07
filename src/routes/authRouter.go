@@ -6,7 +6,6 @@ import (
 )
 
 func AuthRoutes(router *gin.Engine) {
-	router.POST("/auth/create", controller.CreateUser())
 	router.POST("/auth/login", controller.LoginUser())
 	router.GET("/auth/refresh-token", controller.RefreshToken())
 }

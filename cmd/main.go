@@ -18,9 +18,11 @@ func main() {
 	router.Use(gin.Logger())
 
 	routes.AuthRoutes(router)
-	routes.AvatarRoutes(router)
-	routes.PostRoutes(router)
+	routes.ImageRoutes(router)
+
 	routes.UserRoutes(router)
+	routes.PostRoutes(router)
+	routes.MissionsRoutes(router)
 
 	router.Run(":" + port)
 }

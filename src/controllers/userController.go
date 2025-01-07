@@ -120,6 +120,7 @@ func LoginUser() gin.HandlerFunc {
 			"accessToken":  accessToken,
 			"refreshToken": refreshToken,
 			"user":         foundUser,
+			"type":         foundUser.UserType,
 		})
 	}
 }
@@ -265,14 +266,16 @@ func UpdateOneUser() gin.HandlerFunc {
 	}
 }
 
-func GetAllUsers() gin.HandlerFunc {
+func SearchUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		name := c.DefaultQuery("name", "")
+
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
 		var users []model.User
 
-		cursor, err := userCollection.Find(ctx, bson.M{})
+		cursor, err := userCollection.Find(ctx, bson.M{"name": bson.M{"$regex": primitive.Regex{Pattern: ".*" + name + ".*", Options: "i"}}})
 		if err != nil {
 			log.Println("Erro ao buscar usuários:", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar usuários"})
@@ -288,6 +291,7 @@ func GetAllUsers() gin.HandlerFunc {
 				return
 			}
 			user.Password = nil
+			user.Email = nil
 			users = append(users, user)
 		}
 
@@ -315,11 +319,61 @@ func GetOneUser() gin.HandlerFunc {
 		err := userCollection.FindOne(ctx, bson.M{"uid": userId}).Decode(&user)
 		defer cancel()
 
+		user.Password = nil
+		user.Email = nil
+
 		if err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "usuário não encontrado", "erro": err.Error()})
 			return
 		}
 
 		c.JSON(http.StatusOK, user)
+	}
+
+}
+
+func GetBirthdays() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
+		defer cancel()
+
+		currentDate := time.Now()
+		currentMonthDay := fmt.Sprintf("%02d-%02d", currentDate.Month(), currentDate.Day())
+
+		pipeline := mongo.Pipeline{
+			{{Key: "$addFields", Value: bson.M{
+				"birthdaySortable": bson.M{
+					"$substr": []interface{}{"$birthday", 5, 5},
+				},
+			}}},
+			{{Key: "$match", Value: bson.M{
+				"birthdaySortable": bson.M{"$gte": currentMonthDay},
+			}}},
+			{{Key: "$sort", Value: bson.M{"birthdaySortable": 1}}},
+			{{Key: "$project", Value: bson.M{
+				"name":              1,
+				"profilePictureUrl": 1,
+				"role":              1,
+				"birthday":          1,
+				"_id":               0,
+			}}},
+		}
+
+		cursor, err := userCollection.Aggregate(ctx, pipeline)
+		if err != nil {
+			log.Printf("Erro ao executar agregação: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar aniversários"})
+			return
+		}
+		defer cursor.Close(ctx)
+
+		var users []bson.M
+		if err := cursor.All(ctx, &users); err != nil {
+			log.Printf("Erro ao decodificar usuários: %v\n", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar dados dos usuários"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"birthdays": users})
 	}
 }

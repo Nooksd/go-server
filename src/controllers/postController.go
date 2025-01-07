@@ -95,7 +95,7 @@ func GetPosts() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cursor, err := postCollection.Find(ctx, bson.M{}, options.Find().SetSort(bson.M{"_id": -1}).SetSkip(int64(skip)).SetLimit(int64(pageSize)))
+		cursor, err := postCollection.Find(ctx, bson.M{}, options.Find().SetSort(bson.M{"createdAt": -1}).SetSkip(int64(skip)).SetLimit(int64(pageSize)))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao buscar posts"})
 			return
