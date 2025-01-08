@@ -2,11 +2,7 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 
 	database "github.com/Nooksd/go-server/src/db"
@@ -303,15 +299,13 @@ func VerifyCompletion() gin.HandlerFunc {
 			completed = verifyFeedHashtag(mission, userId)
 		case "FEEDIMAGE":
 			completed = verifyFeedImage(userId)
-		case "INSTAGRAMSTORY":
-			completed, err = verifyInstagramMention(userId)
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Tipo de missão inválido"})
 			return
 		}
 
 		if !completed {
-			c.JSON(http.StatusPreconditionFailed, gin.H{"error": "Missão não concluida", "err": err})
+			c.JSON(http.StatusPreconditionFailed, gin.H{"error": "Missão não concluida"})
 			return
 		}
 
@@ -406,59 +400,4 @@ func verifyFeedImage(userId string) bool {
 	}
 
 	return lastPost.ImageUrl != ""
-}
-
-func verifyInstagramMention(userId string) (bool, error) {
-	var ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	var user model.User
-	userCollection := database.OpenCollection(database.Client, "users")
-
-	err := userCollection.FindOne(ctx, bson.M{"uid": userId}).Decode(&user)
-	if err != nil {
-		return false, fmt.Errorf("erro ao buscar usuário: %v", err)
-	}
-
-	if user.InstagramURL == nil || *user.InstagramURL == "" {
-		return false, fmt.Errorf("usuário não possui Instagram vinculado")
-	}
-
-	accessToken := os.Getenv("INSTAGRAM_ACCESS_TOKEN")
-	instaProfileID := os.Getenv("INSTAGRAM_ID")
-
-	posts, err := getInstagramPosts(instaProfileID, accessToken)
-	if err != nil {
-		return false, fmt.Errorf("erro ao buscar posts do Instagram: %v", err)
-	}
-
-	for _, post := range posts {
-		if strings.Contains(post.Caption, "@sd_nook") {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func getInstagramPosts(instagramUserID, accessToken string) ([]struct {
-	Caption string `json:"caption"`
-}, error) {
-	resp, err := http.Get(fmt.Sprintf("https://graph.instagram.com/v16.0/%s/media?fields=caption&access_token=%s", instagramUserID, accessToken))
-	if err != nil {
-		return nil, fmt.Errorf("erro ao fazer requisição: %v", err)
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Data []struct {
-			Caption string `json:"caption"`
-		} `json:"data"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("erro ao decodificar resposta: %v", err)
-	}
-
-	return result.Data, nil
 }

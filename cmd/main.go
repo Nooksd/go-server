@@ -23,6 +23,7 @@ func main() {
 	routes.UserRoutes(router)
 	routes.PostRoutes(router)
 	routes.MissionsRoutes(router)
+	routes.ValidationRoutes(router)
 
 	router.Run(":" + port)
 }
