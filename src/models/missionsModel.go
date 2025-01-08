@@ -7,12 +7,14 @@ import (
 )
 
 type Missions struct {
-	ID        primitive.ObjectID `bson:"_id" json:"id"`
-	OwnerId   string             `bson:"ownerId" json:"ownerId"`
-	Text      string             `json:"text" validate:"required"`
-	Duration  int                `json:"duration" validate:"required"`
-	EndDate   time.Time          `json:"endDate" validate:"required"`
-	Value     int                `json:"value" validate:"required"`
-	Completed []string           `json:"completed"`
-	CreatedAt time.Time          `json:"date" validate:"required"`
+	ID          primitive.ObjectID `bson:"_id" json:"id"`
+	OwnerId     string             `bson:"ownerId" json:"ownerId" validate:"required"`
+	Text        string             `bson:"text" json:"text" validate:"required"`
+	MissionType string             `bson:"missionType" json:"missionType" validate:"required"`
+	Hashtag     string             `bson:"hashtag" json:"hashtag"`
+	Duration    int                `bson:"duration" json:"duration" validate:"required"`
+	EndDate     time.Time          `bson:"endDate" json:"endDate" validate:"required"`
+	Value       int                `bson:"value" json:"value" validate:"required"`
+	Completed   []string           `bson:"completed" json:"completed"`
+	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt" validate:"required"`
 }

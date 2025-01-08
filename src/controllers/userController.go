@@ -71,6 +71,23 @@ func CreateUser() gin.HandlerFunc {
 
 		password := HashPassword(*user.Password)
 		user.Password = &password
+
+		defaultRole := "Membro"
+		emptyString := ""
+		defaultPoints := 0
+
+		user.ProfilePictureUrl = "http://192.168.1.68:9000/avatar/get/avatar1"
+		user.PhoneNumber = &emptyString
+		user.Role = &defaultRole
+		user.EntryDate = time.Now()
+		user.Birthday = time.Now()
+		user.LinkedinURL = &emptyString
+		user.FacebookURL = &emptyString
+		user.InstagramURL = &emptyString
+		user.PTotal = &defaultPoints
+		user.PSpent = &defaultPoints
+		user.PCurrent = &defaultPoints
+
 		user.ID = primitive.NewObjectID()
 		user.Uid = user.ID.Hex()
 

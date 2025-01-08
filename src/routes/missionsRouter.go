@@ -10,5 +10,6 @@ func MissionsRoutes(router *gin.Engine) {
 	router.GET("/mission/get-all", controller.GetMissions())
 	router.GET("/mission/get-current", controller.GetCurrentMissions())
 	router.PUT("/mission/complete/:missionId/:userId", controller.CompleteMission())
+	router.GET("/mission/verify-completion/:missionId", controller.VerifyCompletion())
 	router.DELETE("/mission/delete/:missionId", controller.DeleteMission())
 }

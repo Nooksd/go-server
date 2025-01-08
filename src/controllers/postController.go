@@ -66,6 +66,12 @@ func UploadPost() gin.HandlerFunc {
 		post.Comments = []model.Comment{}
 		post.CreatedAt = time.Now()
 
+		validationErrors := validate.Struct(post)
+		if validationErrors != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": validationErrors.Error()})
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
