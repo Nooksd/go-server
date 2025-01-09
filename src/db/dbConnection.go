@@ -13,7 +13,12 @@ import (
 )
 
 func DBInstance() *mongo.Client {
-	err := godotenv.Load(".env")
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Warning: .env file not found. Falling back to environment variables.")
+	}
+
+	err = godotenv.Load(".env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
