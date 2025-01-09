@@ -49,7 +49,7 @@ func UploadAvatar() gin.HandlerFunc {
 
 		filename := fmt.Sprintf("%s.jpg", targetUserId)
 
-		filePath := filepath.Join("..", "uploads", "avatar", filename)
+		filePath := filepath.Join("uploads", "avatar", filename)
 
 		err = os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 		if err != nil {
@@ -79,7 +79,7 @@ func GetAvatar() gin.HandlerFunc {
 		userId := c.Param("userId")
 		filename := fmt.Sprintf("%s.jpg", userId)
 
-		filePath := filepath.Join("..", "uploads", "avatar", filename)
+		filePath := filepath.Join("uploads", "avatar", filename)
 
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Avatar não encontrado"})

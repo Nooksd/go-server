@@ -41,6 +41,25 @@ func VerifyPassword(providedPassword string, storedHash string) error {
 
 func CreateUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		userClaims, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário não autenticado"})
+			return
+		}
+
+		claims, ok := userClaims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar token"})
+			return
+		}
+
+		userType := claims["UserType"].(string)
+
+		if userType != "ADMIN" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Usuário sem permissão", "tipo": userType})
+			return
+		}
+		
 		var ctx, cancel = context.WithTimeout(context.Background(), 100*time.Second)
 		defer cancel()
 
@@ -97,6 +116,13 @@ func CreateUser() gin.HandlerFunc {
 			return
 		}
 		defer cancel()
+
+		helper.CreateNotification(
+			fmt.Sprintf(
+				"Novo funcionário adicionado: %s",
+				*user.Name,
+			),
+			"contact")
 
 		c.JSON(http.StatusCreated, resultInsertionNumber)
 

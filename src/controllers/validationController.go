@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	database "github.com/Nooksd/go-server/src/db"
+	helper "github.com/Nooksd/go-server/src/helpers"
 	model "github.com/Nooksd/go-server/src/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -162,6 +164,13 @@ func AcceptValidation() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao atualizar o PTotal do usuário"})
 			return
 		}
+
+		helper.CreateNotification(
+			fmt.Sprintf(
+				"Missão completa com sucesso! %d pontos adicionados",
+				mission.Value,
+			),
+			validation.UserID)
 
 		c.JSON(http.StatusOK, gin.H{"message": "Validação aceita e progresso atualizado com sucesso"})
 	}

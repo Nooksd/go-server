@@ -10,6 +10,7 @@ import (
 	"time"
 
 	database "github.com/Nooksd/go-server/src/db"
+	helper "github.com/Nooksd/go-server/src/helpers"
 	model "github.com/Nooksd/go-server/src/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -80,6 +81,13 @@ func UploadPost() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao salvar o post"})
 			return
 		}
+
+		helper.CreateNotification(
+			fmt.Sprintf(
+				"%s criou um novo post",
+				post.Name,
+			),
+			"feed")
 
 		c.JSON(http.StatusOK, gin.H{"message": "Post criado com sucesso", "post": post})
 	}
@@ -241,6 +249,15 @@ func LikePost() gin.HandlerFunc {
 			return
 		}
 
+		if post.OwnerId != userId {
+			helper.CreateNotification(
+				fmt.Sprintf(
+					"%s curtiu seu post",
+					claims["Name"].(string),
+				),
+				post.OwnerId)
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "Post gostado com sucesso"})
 	}
 }
@@ -356,6 +373,15 @@ func CommentPost() gin.HandlerFunc {
 			return
 		}
 
+		if post.OwnerId != claims["Uid"].(string) {
+			helper.CreateNotification(
+				fmt.Sprintf(
+					"%s comentou no seu post",
+					claims["Name"].(string),
+				),
+				post.OwnerId)
+		}
+
 		c.JSON(http.StatusOK, gin.H{"message": "Comentário adicionado com sucesso", "comments": post.Comments})
 	}
 }
@@ -464,7 +490,7 @@ func UploadImage() gin.HandlerFunc {
 		timeStamp := time.Now().Unix()
 		filename := fmt.Sprintf("%s_%d.jpg", userId, timeStamp)
 
-		filePath := filepath.Join("..", "uploads", "post", filename)
+		filePath := filepath.Join("uploads", "post", filename)
 
 		err = os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
 		if err != nil {
@@ -493,7 +519,7 @@ func GetImage() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		image := c.Param("image")
 
-		filePath := filepath.Join("..", "uploads", "post", image)
+		filePath := filepath.Join("uploads", "post", image)
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Imagem não encontrada"})
 			return

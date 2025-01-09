@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	database "github.com/Nooksd/go-server/src/db"
+	helper "github.com/Nooksd/go-server/src/helpers"
 	model "github.com/Nooksd/go-server/src/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -71,6 +73,13 @@ func CreateMission() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao salvar o post"})
 			return
 		}
+
+		helper.CreateNotification(
+			fmt.Sprintf(
+				"Nova missão de %d disponível!",
+				mission.Value,
+			),
+			"mission")
 
 		c.JSON(http.StatusOK, gin.H{"message": "Missão criado com sucesso", "mission": mission})
 	}
